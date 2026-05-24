@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Wazuh Custom Rules — Lateral Movement Detection
+  Auteur  : Joe Bichall (@joebat10)
+  Version : 1.0
+  Sources : MITRE ATT&CK T1021.*, T1570, T1563, T1534
+  
+  Le lateral movement est la phase où l'attaquant se propage de machine en machine
+  après la compromission initiale. Détection critique pour contenir l'incident.
+-->
+<group name="lateral_movement,windows,">
+
+  <!-- ================================================================
+       SMB / ADMIN SHARES — T1021.002
+       net use \\machine\C$ = accès au disque dur distant
+       Très courant après Pass-the-Hash ou utilisation de credentials volés
+  ================================================================ -->
+  <rule id="100200" level="11">
+    <if_group>windows</if_group>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)net\s+use\s+\\\\[^/]+\\(C\$|ADMIN\$|IPC\$)</field>
+    <description>Lateral Movement: connexion à un partage admin distant via net use (T1021.002)</description>
+    <mitre>
+      <id>T1021</id>
+      <id>T1021.002</id>
+    </mitre>
+    <group>lateral_movement,smb,admin_shares,</group>
+  </rule>
+
+  <!-- ================================================================
+       WMIEXEC / REMOTE WMI — T1047
+       wmic /node: = exécution de commandes sur machine distante
+  ================================================================ -->
+  <rule id="100201" level="12">
+    <if_group>windows</if_group>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)wmic\s+/node:[^\s]+\s+.*(process call create|os get|computersystem)</field>
+    <description>Lateral Movement: exécution WMI distante via wmic /node (T1047)</description>
+    <mitre>
+      <id>T1047</id>
+      <id>T1021.006</id>
+    </mitre>
+    <group>lateral_movement,wmi,remote_execution,</group>
+  </rule>
+
+  <!-- ================================================================
+       PSEXEC — T1569.002
+       SysInternals PsExec = exécution de service distant
+       Très utilisé par ransomwares et APT pour se propager
+  ================================================================ -->
+  <rule id="100202" level="13">
+    <if_group>windows</if_group>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)(psexec|psexesvc).*\\\\[^\s]</field>
+    <description>Lateral Movement: PsExec détecté pour exécution distante (T1569.002)</description>
+    <mitre>
+      <id>T1569</id>
+      <id>T1569.002</id>
+      <id>T1021.002</id>
+    </mitre>
+    <group>lateral_movement,psexec,remote_execution,</group>
+  </rule>
+
+  <!-- ================================================================
+       SERVICE PSEXESVC créé — signe que PsExec a réussi
+  ================================================================ -->
+  <rule id="100203" level="14">
+    <if_group>windows</if_group>
+    <field name="win.eventdata.serviceName" type="pcre2">(?i)PSEXESVC</field>
+    <description>Lateral Movement CRITIQUE: service PSEXESVC créé — PsExec a exécuté du code (T1569.002)</description>
+    <mitre>
+      <id>T1569</id>
+      <id>T1569.002</id>
+    </mitre>
+    <group>lateral_movement,psexec,critical,</group>
+  </rule>
+
+  <!-- ================================================================
+       WINRM DISTANT — T1021.006
+       Connexion PowerShell remoting (port 5985/5986)
+  ================================================================ -->
+  <rule id="100204" level="11">
+    <if_group>windows</if_group>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)(Enter-PSSession|Invoke-Command|New-PSSession|psremoting).*-ComputerName\s+[^\s]</field>
+    <description>Lateral Movement: PowerShell Remoting vers machine distante (T1021.006)</description>
+    <mitre>
+      <id>T1021</id>
+      <id>T1021.006</id>
+    </mitre>
+    <group>lateral_movement,winrm,powershell,</group>
+  </rule>
+
+  <!-- ================================================================
+       AT / SCHTASKS DISTANT — T1053.005
+       Création de tâche planifiée sur machine distante
+  ================================================================ -->
+  <rule id="100205" level="12">
+    <if_group>windows</if_group>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)schtasks.*/s\s+[^\s]+.*/create</field>
+    <description>Lateral Movement: création de tâche planifiée sur machine distante (T1053.005)</description>
+    <mitre>
+      <id>T1053</id>
+      <id>T1053.005</id>
+    </mitre>
+    <group>lateral_movement,schtasks,remote,persistence,</group>
+  </rule>
+
+  <!-- ================================================================
+       SC.EXE — T1543.003
+       Création ou démarrage de service sur machine distante
+  ================================================================ -->
+  <rule id="100206" level="12">
+    <if_group>windows</if_group>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)sc\s+\\\\[^\s]+\s+(create|start|config|qc)</field>
+    <description>Lateral Movement: gestion de service distant via sc.exe (T1543.003)</description>
+    <mitre>
+      <id>T1543</id>
+      <id>T1543.003</id>
+    </mitre>
+    <group>lateral_movement,service,remote,</group>
+  </rule>
+
+  <!-- ================================================================
+       RDP INHABITUEL — T1021.001
+       Connexion RDP (EventID 4624 type 10) depuis IP non-standard
+       Event ID 4624, LogonType=10 = Remote Interactive
+  ================================================================ -->
+  <rule id="100207" level="10">
+    <if_group>windows</if_group>
+    <field name="win.eventdata.logonType">10</field>
+    <field name="win.system.eventID">4624</field>
+    <description>Lateral Movement: connexion RDP interactive (LogonType 10) détectée (T1021.001)</description>
+    <mitre>
+      <id>T1021</id>
+      <id>T1021.001</id>
+    </mitre>
+    <group>lateral_movement,rdp,logon,</group>
+  </rule>
+
+  <!-- ================================================================
+       IMPACKET ARTIFACTS — T1557 / T1021.002
+       Impacket = lib Python pour attaques SMB/Kerberos/WMI
+       Artefacts caractéristiques dans les logs Windows
+  ================================================================ -->
+  <rule id="100208" level="14">
+    <if_group>windows</if_group>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)(smbexec|wmiexec|atexec|dcomexec|secretsdump)</field>
+    <description>Lateral Movement CRITIQUE: outil Impacket détecté (T1021.002/T1047)</description>
+    <mitre>
+      <id>T1021</id>
+      <id>T1021.002</id>
+      <id>T1047</id>
+    </mitre>
+    <group>lateral_movement,impacket,critical,</group>
+  </rule>
+
+  <!-- ================================================================
+       XCOPY / ROBOCOPY VERS PARTAGE RÉSEAU — T1570
+       Transfert de fichiers (outils ou données) vers share réseau
+  ================================================================ -->
+  <rule id="100209" level="10">
+    <if_group>windows</if_group>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)(xcopy|robocopy|copy)\s+.*\\\\[^\\]+\\[^\\]+</field>
+    <description>Lateral Movement: copie de fichiers vers partage réseau distant (T1570)</description>
+    <mitre>
+      <id>T1570</id>
+    </mitre>
+    <group>lateral_movement,file_transfer,</group>
+  </rule>
+
+  <!-- ================================================================
+       MSTSC AVEC ARGS INHABITUELS — T1021.001
+       Connexion RDP directe depuis ligne de commande
+  ================================================================ -->
+  <rule id="100210" level="9">
+    <if_group>windows</if_group>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)mstsc.*(\/v:[^\s]+|\/admin)</field>
+    <description>Lateral Movement: connexion RDP programmée via mstsc.exe (T1021.001)</description>
+    <mitre>
+      <id>T1021</id>
+      <id>T1021.001</id>
+    </mitre>
+    <group>lateral_movement,rdp,mstsc,</group>
+  </rule>
+
+</group>

@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Wazuh Custom Rules — LOLBins (Living Off the Land Binaries)
+  Auteur  : Joe Bichall (@joebat10)
+  Version : 1.0
+  Sources : LOLBAS Project (lolbas-project.github.io), MITRE ATT&CK
+  
+  LOLBins = binaires Windows légitimes détournés pour exécuter du code malveillant,
+  télécharger des payloads ou contourner les contrôles de sécurité.
+  Les attaquants les préfèrent car ils sont signés Microsoft et passent inaperçus.
+-->
+<group name="lolbins,windows,">
+
+  <!-- ================================================================
+       CERTUTIL — T1140 / T1105
+       Usage légitime : gestion de certificats
+       Détournement : décoder Base64, télécharger fichiers
+  ================================================================ -->
+  <rule id="100100" level="10">
+    <if_group>windows</if_group>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)certutil.*(-decode|-encode|-urlcache|-f\s+http)</field>
+    <description>LOLBin: certutil utilisé pour déchiffrer ou télécharger un fichier (T1140/T1105)</description>
+    <mitre>
+      <id>T1140</id>
+      <id>T1105</id>
+    </mitre>
+    <group>lolbins,certutil,download,</group>
+  </rule>
+
+  <!-- ================================================================
+       MSHTA — T1218.005
+       Usage légitime : exécuter des applications HTA
+       Détournement : exécuter VBScript/JScript depuis URL
+  ================================================================ -->
+  <rule id="100101" level="12">
+    <if_group>windows</if_group>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)mshta.*http[s]?://</field>
+    <description>LOLBin: mshta exécute un script depuis URL distante (T1218.005)</description>
+    <mitre>
+      <id>T1218</id>
+      <id>T1218.005</id>
+    </mitre>
+    <group>lolbins,mshta,execution,</group>
+  </rule>
+
+  <!-- ================================================================
+       REGSVR32 — T1218.010
+       Détournement : "Squiblydoo" — charger DLL ou script COM
+  ================================================================ -->
+  <rule id="100102" level="12">
+    <if_group>windows</if_group>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)regsvr32.*(/i|/s|/n).*http[s]?://</field>
+    <description>LOLBin: regsvr32 Squiblydoo — chargement de DLL/script distant (T1218.010)</description>
+    <mitre>
+      <id>T1218</id>
+      <id>T1218.010</id>
+    </mitre>
+    <group>lolbins,regsvr32,defense_evasion,</group>
+  </rule>
+
+  <!-- ================================================================
+       RUNDLL32 — T1218.011
+       Détournement : exécuter code arbitraire via DLL ou JavaScript
+  ================================================================ -->
+  <rule id="100103" level="11">
+    <if_group>windows</if_group>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)rundll32.*(javascript:|vbscript:|shell32\.dll|advpack\.dll|ieadvpack\.dll)</field>
+    <description>LOLBin: rundll32 exécute du script ou DLL suspecte (T1218.011)</description>
+    <mitre>
+      <id>T1218</id>
+      <id>T1218.011</id>
+    </mitre>
+    <group>lolbins,rundll32,defense_evasion,</group>
+  </rule>
+
+  <!-- ================================================================
+       WMIC — T1047 / T1059.001
+       Détournement : exécution de processus, collecte d'infos, lateral movement
+  ================================================================ -->
+  <rule id="100104" level="10">
+    <if_group>windows</if_group>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)wmic.*(process call create|os get|shadowcopy delete|/node:)</field>
+    <description>LOLBin: wmic utilisé pour exécuter un processus, accéder à distance ou supprimer les shadow copies (T1047)</description>
+    <mitre>
+      <id>T1047</id>
+      <id>T1490</id>
+    </mitre>
+    <group>lolbins,wmic,execution,</group>
+  </rule>
+
+  <!-- ================================================================
+       BITSADMIN — T1197
+       Détournement : télécharger payloads, persistance
+  ================================================================ -->
+  <rule id="100105" level="11">
+    <if_group>windows</if_group>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)bitsadmin.*(\/transfer|\/addfile|\/SetNotifyCmdLine)</field>
+    <description>LOLBin: bitsadmin utilisé pour télécharger ou exécuter un payload (T1197)</description>
+    <mitre>
+      <id>T1197</id>
+      <id>T1105</id>
+    </mitre>
+    <group>lolbins,bitsadmin,download,persistence,</group>
+  </rule>
+
+  <!-- ================================================================
+       INSTALLUTIL — T1218.004
+       Détournement : contourner AppLocker, exécuter code .NET
+  ================================================================ -->
+  <rule id="100106" level="13">
+    <if_group>windows</if_group>
+    <field name="win.eventdata.parentImage" type="pcre2">(?i)cmd\.exe|powershell\.exe|wscript\.exe|cscript\.exe</field>
+    <field name="win.eventdata.image" type="pcre2">(?i)InstallUtil\.exe</field>
+    <description>LOLBin: InstallUtil lancé depuis shell suspect — bypass AppLocker possible (T1218.004)</description>
+    <mitre>
+      <id>T1218</id>
+      <id>T1218.004</id>
+    </mitre>
+    <group>lolbins,installutil,defense_evasion,</group>
+  </rule>
+
+  <!-- ================================================================
+       CMSTP — T1218.003
+       Détournement : contourner UAC, exécuter code arbitraire
+  ================================================================ -->
+  <rule id="100107" level="13">
+    <if_group>windows</if_group>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)cmstp.*(/ni|/s|/au)</field>
+    <description>LOLBin: cmstp avec options suspectes — bypass UAC possible (T1218.003)</description>
+    <mitre>
+      <id>T1218</id>
+      <id>T1218.003</id>
+      <id>T1548.002</id>
+    </mitre>
+    <group>lolbins,cmstp,privilege_escalation,</group>
+  </rule>
+
+  <!-- ================================================================
+       MSIEXEC — T1218.007
+       Détournement : installer MSI depuis URL (dropper)
+  ================================================================ -->
+  <rule id="100108" level="11">
+    <if_group>windows</if_group>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)msiexec.*http[s]?://</field>
+    <description>LOLBin: msiexec télécharge et installe un MSI depuis URL (T1218.007)</description>
+    <mitre>
+      <id>T1218</id>
+      <id>T1218.007</id>
+    </mitre>
+    <group>lolbins,msiexec,download,</group>
+  </rule>
+
+  <!-- ================================================================
+       MAVINJECT — T1055.001
+       Détournement : injection de DLL dans processus (rare, ultra-suspect)
+  ================================================================ -->
+  <rule id="100109" level="15">
+    <if_group>windows</if_group>
+    <field name="win.eventdata.image" type="pcre2">(?i)mavinject(32|64)?\.exe</field>
+    <description>LOLBin CRITIQUE: mavinject détecté — injection de DLL dans processus (T1055.001)</description>
+    <mitre>
+      <id>T1055</id>
+      <id>T1055.001</id>
+    </mitre>
+    <group>lolbins,injection,critical,</group>
+  </rule>
+
+  <!-- ================================================================
+       POWERSHELL ENCODÉ — T1059.001
+       Contournement antivirus via commandes Base64
+  ================================================================ -->
+  <rule id="100110" level="12">
+    <if_group>windows</if_group>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)powershell.*(-enc|-encodedcommand|-e\s+[A-Za-z0-9+/=]{20,})</field>
+    <description>PowerShell encodé Base64 — tentative de bypass antivirus (T1059.001)</description>
+    <mitre>
+      <id>T1059</id>
+      <id>T1059.001</id>
+      <id>T1027</id>
+    </mitre>
+    <group>lolbins,powershell,obfuscation,</group>
+  </rule>
+
+  <!-- ================================================================
+       POWERSHELL DOWNLOAD CRADLE — T1059.001 / T1105
+       IEX (Invoke-Expression) + DownloadString = fileless malware
+  ================================================================ -->
+  <rule id="100111" level="14">
+    <if_group>windows</if_group>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)(IEX|Invoke-Expression).*(Net\.WebClient|DownloadString|WebRequest|curl|wget)</field>
+    <description>PowerShell download cradle détecté — exécution fileless depuis URL (T1059.001/T1105)</description>
+    <mitre>
+      <id>T1059</id>
+      <id>T1059.001</id>
+      <id>T1105</id>
+    </mitre>
+    <group>lolbins,powershell,fileless,critical,</group>
+  </rule>
+
+</group>

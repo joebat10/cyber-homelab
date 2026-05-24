@@ -1,0 +1,53 @@
+# ========================
+# Cyber Homelab — .gitignore
+# ========================
+
+# Secrets & credentials
+.env
+*.key
+*.pem
+*.p12
+*.pfx
+api_keys.txt
+secrets.txt
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+*.log
+
+# Evidence / forensic images (trop lourds pour Git)
+*.dd
+*.e01
+*.raw
+*.vmem
+*.mem
+*.img
+*.iso
+
+# Outputs locaux
+output/
+exports/
+reports/generated/
+*.csv.bak
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDEs
+.vscode/settings.json
+.idea/
+*.swp
+
+# Wazuh local
+wazuh_certs/
+ossec.log

@@ -1,0 +1,244 @@
+<!--
+  Sysmon Config — cyber-homelab
+  Author: Joe Bichall (@joebat10)
+  Base: SwiftOnSecurity/sysmon-config (MIT License)
+  
+  Focus : Détection attaques Active Directory
+  - Credential Dumping (T1003)
+  - Lateral Movement (T1021)
+  - LOLBins (T1218)
+  - Process Injection (T1055)
+  - Registry Persistence (T1547)
+  
+  Installation:
+    Sysmon64.exe -accepteula -i sysmon_config.xml
+  Update:
+    Sysmon64.exe -c sysmon_config.xml
+-->
+<Sysmon schemaversion="4.82">
+  <HashAlgorithms>md5,sha256,IMPHASH</HashAlgorithms>
+  <CheckRevocation/>
+
+  <EventFiltering>
+
+    <!-- ============================================================ -->
+    <!-- Event ID 1 : Process Create                                  -->
+    <!-- ============================================================ -->
+    <RuleGroup name="" groupRelation="or">
+      <ProcessCreate onmatch="include">
+        <!-- LOLBins -->
+        <Image condition="is">C:\Windows\System32\certutil.exe</Image>
+        <Image condition="is">C:\Windows\System32\mshta.exe</Image>
+        <Image condition="is">C:\Windows\System32\regsvr32.exe</Image>
+        <Image condition="is">C:\Windows\System32\rundll32.exe</Image>
+        <Image condition="is">C:\Windows\System32\installutil.exe</Image>
+        <Image condition="is">C:\Windows\Microsoft.NET\Framework\v4.0.30319\regasm.exe</Image>
+        
+        <!-- Outils offensifs courants -->
+        <Image condition="end with">mimikatz.exe</Image>
+        <Image condition="end with">meterpreter.exe</Image>
+        <Image condition="end with">cobaltstrike.exe</Image>
+        <Image condition="end with">metasploit.exe</Image>
+        
+        <!-- PowerShell suspect -->
+        <CommandLine condition="contains">-EncodedCommand</CommandLine>
+        <CommandLine condition="contains">-enc </CommandLine>
+        <CommandLine condition="contains">IEX(</CommandLine>
+        <CommandLine condition="contains">Invoke-Expression</CommandLine>
+        <CommandLine condition="contains">DownloadString</CommandLine>
+        <CommandLine condition="contains">DownloadFile</CommandLine>
+        <CommandLine condition="contains">-nop -w hidden</CommandLine>
+        <CommandLine condition="contains">bypass</CommandLine>
+        
+        <!-- Net commands suspects -->
+        <CommandLine condition="contains">net user /add</CommandLine>
+        <CommandLine condition="contains">net localgroup administrators</CommandLine>
+        <CommandLine condition="contains">net group "Domain Admins"</CommandLine>
+        
+        <!-- WMI persist -->
+        <CommandLine condition="contains">wmic</CommandLine>
+        
+        <!-- Désactiver défenses -->
+        <CommandLine condition="contains">DisableRealtimeMonitoring</CommandLine>
+        <CommandLine condition="contains">Set-MpPreference</CommandLine>
+        <CommandLine condition="contains">Add-MpPreference</CommandLine>
+      </ProcessCreate>
+    </RuleGroup>
+
+    <!-- Processus exclus pour réduire le bruit -->
+    <RuleGroup name="" groupRelation="or">
+      <ProcessCreate onmatch="exclude">
+        <Image condition="is">C:\Windows\System32\werfault.exe</Image>
+        <Image condition="is">C:\Windows\System32\werfaultsecure.exe</Image>
+        <Image condition="begin with">C:\Program Files\Windows Defender</Image>
+        <Image condition="begin with">C:\Program Files\Microsoft Security Client</Image>
+        <!-- Antivirus légitimes -->
+        <Image condition="begin with">C:\Program Files\Trend Micro</Image>
+        <Image condition="begin with">C:\Program Files\Symantec</Image>
+      </ProcessCreate>
+    </RuleGroup>
+
+    <!-- ============================================================ -->
+    <!-- Event ID 3 : Network Connect                                 -->
+    <!-- ============================================================ -->
+    <RuleGroup name="" groupRelation="or">
+      <NetworkConnect onmatch="include">
+        <!-- Ports suspects -->
+        <DestinationPort condition="is">4444</DestinationPort>   <!-- Metasploit -->
+        <DestinationPort condition="is">4445</DestinationPort>
+        <DestinationPort condition="is">8888</DestinationPort>   <!-- Common RAT -->
+        <DestinationPort condition="is">1337</DestinationPort>
+        <DestinationPort condition="is">31337</DestinationPort>
+        
+        <!-- Kerberos externe (hors DC) -->
+        <DestinationPort condition="is">88</DestinationPort>
+        
+        <!-- WinRM -->
+        <DestinationPort condition="is">5985</DestinationPort>
+        <DestinationPort condition="is">5986</DestinationPort>
+        
+        <!-- SMB vers machines non-serveur -->
+        <DestinationPort condition="is">445</DestinationPort>
+        
+        <!-- RDP -->
+        <DestinationPort condition="is">3389</DestinationPort>
+        
+        <!-- PowerShell remoting suspect -->
+        <Image condition="is">C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe</Image>
+      </NetworkConnect>
+    </RuleGroup>
+
+    <RuleGroup name="" groupRelation="or">
+      <NetworkConnect onmatch="exclude">
+        <!-- Exclure le bruit Windows Update -->
+        <Image condition="is">C:\Windows\System32\svchost.exe</Image>
+        <DestinationPort condition="is">443</DestinationPort>
+        <DestinationPort condition="is">80</DestinationPort>
+        <DestinationPort condition="is">53</DestinationPort>
+        <DestinationPort condition="is">123</DestinationPort>  <!-- NTP -->
+      </NetworkConnect>
+    </RuleGroup>
+
+    <!-- ============================================================ -->
+    <!-- Event ID 7 : Image Loaded (DLL)                             -->
+    <!-- ============================================================ -->
+    <RuleGroup name="" groupRelation="or">
+      <ImageLoad onmatch="include">
+        <!-- DLLs de credential access -->
+        <ImageLoaded condition="is">C:\Windows\System32\samlib.dll</ImageLoaded>
+        <ImageLoaded condition="is">C:\Windows\System32\vaultcli.dll</ImageLoaded>
+        <ImageLoaded condition="is">C:\Windows\System32\wdigest.dll</ImageLoaded>
+        <Signed condition="is">false</Signed>
+      </ImageLoad>
+    </RuleGroup>
+
+    <!-- ============================================================ -->
+    <!-- Event ID 8 : CreateRemoteThread (Process Injection T1055)   -->
+    <!-- ============================================================ -->
+    <RuleGroup name="" groupRelation="or">
+      <CreateRemoteThread onmatch="include">
+        <!-- Injection dans processus système légitimes -->
+        <TargetImage condition="is">C:\Windows\System32\lsass.exe</TargetImage>
+        <TargetImage condition="is">C:\Windows\explorer.exe</TargetImage>
+        <TargetImage condition="is">C:\Windows\System32\svchost.exe</TargetImage>
+        <TargetImage condition="end with">notepad.exe</TargetImage>
+        <TargetImage condition="end with">mspaint.exe</TargetImage>
+        <TargetImage condition="end with">calc.exe</TargetImage>
+      </CreateRemoteThread>
+    </RuleGroup>
+
+    <!-- ============================================================ -->
+    <!-- Event ID 10 : ProcessAccess (LSASS T1003.001)               -->
+    <!-- ============================================================ -->
+    <RuleGroup name="" groupRelation="or">
+      <ProcessAccess onmatch="include">
+        <!-- Accès à LSASS -->
+        <TargetImage condition="is">C:\Windows\System32\lsass.exe</TargetImage>
+        
+        <!-- Droits d'accès suspects (Mimikatz) -->
+        <GrantedAccess condition="is">0x1010</GrantedAccess>
+        <GrantedAccess condition="is">0x1410</GrantedAccess>
+        <GrantedAccess condition="is">0x143a</GrantedAccess>
+        <GrantedAccess condition="is">0x1fffff</GrantedAccess>
+      </ProcessAccess>
+    </RuleGroup>
+
+    <!-- Exclusions LSASS légitimes -->
+    <RuleGroup name="" groupRelation="or">
+      <ProcessAccess onmatch="exclude">
+        <SourceImage condition="is">C:\Windows\System32\werfault.exe</SourceImage>
+        <SourceImage condition="is">C:\Windows\System32\csrss.exe</SourceImage>
+        <SourceImage condition="begin with">C:\Windows\System32\antimalware</SourceImage>
+        <SourceImage condition="begin with">C:\Program Files\Windows Defender</SourceImage>
+      </ProcessAccess>
+    </RuleGroup>
+
+    <!-- ============================================================ -->
+    <!-- Event ID 11 : File Create                                    -->
+    <!-- ============================================================ -->
+    <RuleGroup name="" groupRelation="or">
+      <FileCreate onmatch="include">
+        <!-- Fichiers suspects dans répertoires système -->
+        <TargetFilename condition="contains">\Temp\</TargetFilename>
+        <TargetFilename condition="end with">.ps1</TargetFilename>
+        <TargetFilename condition="end with">.vbs</TargetFilename>
+        <TargetFilename condition="end with">.hta</TargetFilename>
+        
+        <!-- Ransomware signatures -->
+        <TargetFilename condition="end with">.encrypted</TargetFilename>
+        <TargetFilename condition="end with">.locked</TargetFilename>
+        <TargetFilename condition="end with">.crypted</TargetFilename>
+        <TargetFilename condition="contains">DECRYPT</TargetFilename>
+        <TargetFilename condition="contains">README_RANSOM</TargetFilename>
+      </FileCreate>
+    </RuleGroup>
+
+    <!-- ============================================================ -->
+    <!-- Event ID 13 : Registry Value Set (Persistence T1547)        -->
+    <!-- ============================================================ -->
+    <RuleGroup name="" groupRelation="or">
+      <RegistryEvent onmatch="include">
+        <!-- Clés de persistance communes -->
+        <TargetObject condition="contains">CurrentVersion\Run</TargetObject>
+        <TargetObject condition="contains">CurrentVersion\RunOnce</TargetObject>
+        <TargetObject condition="contains">CurrentVersion\RunOnceEx</TargetObject>
+        <TargetObject condition="contains">Winlogon\Shell</TargetObject>
+        <TargetObject condition="contains">Winlogon\Userinit</TargetObject>
+        <TargetObject condition="contains">CurrentControlSet\Services</TargetObject>
+        
+        <!-- Autologon (password en clair) -->
+        <TargetObject condition="contains">Winlogon\AutoAdminLogon</TargetObject>
+        <TargetObject condition="contains">Winlogon\DefaultPassword</TargetObject>
+        
+        <!-- Disable Windows Defender via registre -->
+        <TargetObject condition="contains">Windows Defender\DisableAntiSpyware</TargetObject>
+        <TargetObject condition="contains">Windows Defender\DisableRealtimeMonitoring</TargetObject>
+      </RegistryEvent>
+    </RuleGroup>
+
+    <!-- ============================================================ -->
+    <!-- Event ID 22 : DNS Query                                      -->
+    <!-- ============================================================ -->
+    <RuleGroup name="" groupRelation="or">
+      <DnsQuery onmatch="include">
+        <!-- Domaines suspectes — DGA patterns -->
+        <QueryName condition="end with">.onion.ws</QueryName>
+        <QueryName condition="end with">.onion.to</QueryName>
+        <QueryName condition="contains">pastebin.com</QueryName>
+        <QueryName condition="contains">ngrok.io</QueryName>
+        <QueryName condition="contains">serveo.net</QueryName>
+      </DnsQuery>
+    </RuleGroup>
+
+    <!-- Désactiver les events très verbeux -->
+    <RuleGroup name="" groupRelation="or">
+      <ProcessTerminate onmatch="exclude">
+        <Rule groupRelation="or">
+          <!-- Capturer toutes les terminaisons processus ralentit le système -->
+          <Image condition="begin with">C:\Windows\System32</Image>
+        </Rule>
+      </ProcessTerminate>
+    </RuleGroup>
+
+  </EventFiltering>
+</Sysmon>

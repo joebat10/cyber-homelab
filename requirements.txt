@@ -1,0 +1,29 @@
+# cyber-homelab — Dépendances Python globales
+# Joe Bichall — https://github.com/joebat10/cyber-homelab
+
+# === SOC / Wazuh Automation ===
+requests>=2.31.0          # API calls Wazuh REST
+urllib3>=2.0.0            # HTTPS
+python-dotenv>=1.0.0      # Gestion .env
+rich>=13.7.0              # Terminal output stylé
+colorama>=0.4.6           # Windows terminal colors
+
+# === DFIR / Forensics ===
+python-registry>=1.3.1    # Analyse Registry Windows
+construct>=2.10.70        # Parsing structures binaires
+pyevtx>=0.7.4             # Windows Event Logs
+dfvfs>=20230507           # Digital Forensics Virtual FS (Autopsy/Plaso)
+
+# === CTI / OSINT ===
+pymisp>=2.4.170           # API MISP
+stix2>=3.0.1              # Standard STIX 2.1 (IOC structurés)
+taxii2-client>=2.3.0      # Feed TAXII (threat intel)
+shodan>=1.28.0            # OSINT Shodan
+dnspython>=2.4.2          # DNS lookups
+ipwhois>=1.2.0            # Whois IP
+
+# === Reporting ===
+jinja2>=3.1.3             # Templates rapports HTML
+pandas>=2.1.0             # Manipulation données CSV/JSON
+openpyxl>=3.1.2           # Export Excel
+matplotlib>=3.8.0         # Graphiques

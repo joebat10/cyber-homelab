@@ -1,0 +1,362 @@
+{
+  "name": "APT28 Fancy Bear — MITRE ATT&CK Layer",
+  "versions": {
+    "attack": "14",
+    "navigator": "4.9.1",
+    "layer": "4.5"
+  },
+  "domain": "enterprise-attack",
+  "description": "TTP mappés pour APT28 (Fancy Bear / Sofacy / STRONTIUM). Source: MITRE ATT&CK G0007. Auteur: Joe Bichall (@joebat10) — cyber-homelab",
+  "filters": {
+    "platforms": [
+      "Windows",
+      "Linux",
+      "macOS"
+    ]
+  },
+  "sorting": 3,
+  "layout": {
+    "layout": "side",
+    "aggregateFunction": "average",
+    "showID": true,
+    "showName": true,
+    "showAggregateScores": false,
+    "countUnscored": false,
+    "expandedSubtechniques": "annotated"
+  },
+  "hideDisabled": false,
+  "techniques": [
+    {
+      "techniqueID": "T1566",
+      "tactic": "initial-access",
+      "color": "#e60026",
+      "comment": "APT28 utilise massivement le spearphishing ciblé",
+      "enabled": true,
+      "metadata": [],
+      "links": [],
+      "showSubtechniques": true,
+      "score": 90
+    },
+    {
+      "techniqueID": "T1566.001",
+      "tactic": "initial-access",
+      "color": "#e60026",
+      "comment": "Liens malveillants vers pages de collecte d'identifiants",
+      "enabled": true,
+      "score": 90
+    },
+    {
+      "techniqueID": "T1566.002",
+      "tactic": "initial-access",
+      "color": "#e60026",
+      "comment": "Pièces jointes Office avec macros malveillantes",
+      "enabled": true,
+      "score": 85
+    },
+    {
+      "techniqueID": "T1190",
+      "tactic": "initial-access",
+      "color": "#ff6600",
+      "comment": "Exploitation CVE-2017-11882 (Office), CVE-2014-4114",
+      "enabled": true,
+      "score": 70
+    },
+    {
+      "techniqueID": "T1059",
+      "tactic": "execution",
+      "color": "#ff6600",
+      "comment": "PowerShell pour téléchargement et exécution",
+      "enabled": true,
+      "showSubtechniques": true,
+      "score": 80
+    },
+    {
+      "techniqueID": "T1059.001",
+      "tactic": "execution",
+      "color": "#ff6600",
+      "comment": "PowerShell — scripts encodés, download cradle",
+      "enabled": true,
+      "score": 85
+    },
+    {
+      "techniqueID": "T1059.003",
+      "tactic": "execution",
+      "color": "#ff6600",
+      "comment": "Windows Command Shell — cmd.exe",
+      "enabled": true,
+      "score": 70
+    },
+    {
+      "techniqueID": "T1204",
+      "tactic": "execution",
+      "color": "#ff9933",
+      "comment": "Exécution par l'utilisateur (macros Office)",
+      "enabled": true,
+      "score": 75
+    },
+    {
+      "techniqueID": "T1547",
+      "tactic": "persistence",
+      "color": "#cc0099",
+      "comment": "Persistance via divers mécanismes Windows",
+      "enabled": true,
+      "showSubtechniques": true,
+      "score": 80
+    },
+    {
+      "techniqueID": "T1547.001",
+      "tactic": "persistence",
+      "color": "#cc0099",
+      "comment": "Registry Run Keys — HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+      "enabled": true,
+      "score": 85
+    },
+    {
+      "techniqueID": "T1053",
+      "tactic": "persistence",
+      "color": "#cc0099",
+      "comment": "Tâches planifiées pour persistance",
+      "enabled": true,
+      "showSubtechniques": true,
+      "score": 75
+    },
+    {
+      "techniqueID": "T1053.005",
+      "tactic": "persistence",
+      "color": "#cc0099",
+      "comment": "Scheduled Tasks Windows",
+      "enabled": true,
+      "score": 75
+    },
+    {
+      "techniqueID": "T1068",
+      "tactic": "privilege-escalation",
+      "color": "#9900cc",
+      "comment": "Exploitation CVE pour élévation de privilèges",
+      "enabled": true,
+      "score": 65
+    },
+    {
+      "techniqueID": "T1027",
+      "tactic": "defense-evasion",
+      "color": "#336699",
+      "comment": "Chiffrement et obfuscation des payloads",
+      "enabled": true,
+      "score": 80
+    },
+    {
+      "techniqueID": "T1036",
+      "tactic": "defense-evasion",
+      "color": "#336699",
+      "comment": "Masquage — noms de processus légitimes",
+      "enabled": true,
+      "score": 70
+    },
+    {
+      "techniqueID": "T1562",
+      "tactic": "defense-evasion",
+      "color": "#336699",
+      "comment": "Désactivation des outils de sécurité",
+      "enabled": true,
+      "score": 60
+    },
+    {
+      "techniqueID": "T1003",
+      "tactic": "credential-access",
+      "color": "#cc3300",
+      "comment": "Credential dumping — Mimikatz, WCE, ProcDump",
+      "enabled": true,
+      "showSubtechniques": true,
+      "score": 85
+    },
+    {
+      "techniqueID": "T1003.001",
+      "tactic": "credential-access",
+      "color": "#cc3300",
+      "comment": "LSASS Memory dump",
+      "enabled": true,
+      "score": 90
+    },
+    {
+      "techniqueID": "T1003.003",
+      "tactic": "credential-access",
+      "color": "#cc3300",
+      "comment": "NTDS.dit extraction",
+      "enabled": true,
+      "score": 70
+    },
+    {
+      "techniqueID": "T1558",
+      "tactic": "credential-access",
+      "color": "#cc3300",
+      "comment": "Kerberos — Golden/Silver Ticket, Kerberoasting",
+      "enabled": true,
+      "showSubtechniques": true,
+      "score": 75
+    },
+    {
+      "techniqueID": "T1558.003",
+      "tactic": "credential-access",
+      "color": "#cc3300",
+      "comment": "Kerberoasting — RC4 ticket requests",
+      "enabled": true,
+      "score": 70
+    },
+    {
+      "techniqueID": "T1087",
+      "tactic": "discovery",
+      "color": "#009999",
+      "comment": "Enumération comptes AD",
+      "enabled": true,
+      "score": 75
+    },
+    {
+      "techniqueID": "T1046",
+      "tactic": "discovery",
+      "color": "#009999",
+      "comment": "Scan réseau",
+      "enabled": true,
+      "score": 70
+    },
+    {
+      "techniqueID": "T1021",
+      "tactic": "lateral-movement",
+      "color": "#006600",
+      "comment": "Services distants pour mouvement latéral",
+      "enabled": true,
+      "showSubtechniques": true,
+      "score": 80
+    },
+    {
+      "techniqueID": "T1021.001",
+      "tactic": "lateral-movement",
+      "color": "#006600",
+      "comment": "RDP — Remote Desktop Protocol",
+      "enabled": true,
+      "score": 80
+    },
+    {
+      "techniqueID": "T1021.002",
+      "tactic": "lateral-movement",
+      "color": "#006600",
+      "comment": "SMB/Windows Admin Shares",
+      "enabled": true,
+      "score": 75
+    },
+    {
+      "techniqueID": "T1550",
+      "tactic": "lateral-movement",
+      "color": "#006600",
+      "comment": "Utilisation des identifiants volés",
+      "enabled": true,
+      "showSubtechniques": true,
+      "score": 80
+    },
+    {
+      "techniqueID": "T1550.002",
+      "tactic": "lateral-movement",
+      "color": "#006600",
+      "comment": "Pass the Hash — NTLM",
+      "enabled": true,
+      "score": 85
+    },
+    {
+      "techniqueID": "T1114",
+      "tactic": "collection",
+      "color": "#996600",
+      "comment": "Collecte emails Outlook/Exchange",
+      "enabled": true,
+      "score": 80
+    },
+    {
+      "techniqueID": "T1560",
+      "tactic": "collection",
+      "color": "#996600",
+      "comment": "Archivage des données collectées",
+      "enabled": true,
+      "score": 65
+    },
+    {
+      "techniqueID": "T1041",
+      "tactic": "exfiltration",
+      "color": "#003366",
+      "comment": "Exfiltration via canal C2",
+      "enabled": true,
+      "score": 80
+    },
+    {
+      "techniqueID": "T1071",
+      "tactic": "command-and-control",
+      "color": "#660000",
+      "comment": "C2 via protocoles web standard",
+      "enabled": true,
+      "showSubtechniques": true,
+      "score": 85
+    },
+    {
+      "techniqueID": "T1071.001",
+      "tactic": "command-and-control",
+      "color": "#660000",
+      "comment": "HTTP/HTTPS pour C2 — évite les proxies",
+      "enabled": true,
+      "score": 90
+    },
+    {
+      "techniqueID": "T1090",
+      "tactic": "command-and-control",
+      "color": "#660000",
+      "comment": "Proxy / Domain Fronting",
+      "enabled": true,
+      "showSubtechniques": true,
+      "score": 70
+    },
+    {
+      "techniqueID": "T1090.004",
+      "tactic": "command-and-control",
+      "color": "#660000",
+      "comment": "Domain Fronting via CDN",
+      "enabled": true,
+      "score": 65
+    }
+  ],
+  "gradient": {
+    "colors": [
+      "#ff6666",
+      "#ff0000"
+    ],
+    "minValue": 0,
+    "maxValue": 100
+  },
+  "legendItems": [
+    {
+      "color": "#e60026",
+      "label": "Initial Access — Haute confiance"
+    },
+    {
+      "color": "#cc3300",
+      "label": "Credential Access — Signature APT28"
+    },
+    {
+      "color": "#336699",
+      "label": "Defense Evasion"
+    }
+  ],
+  "metadata": [
+    {
+      "name": "author",
+      "value": "Joe Bichall (@joebat10)"
+    },
+    {
+      "name": "project",
+      "value": "cyber-homelab"
+    },
+    {
+      "name": "mitre_group",
+      "value": "G0007"
+    },
+    {
+      "name": "generated",
+      "value": "2024-01-15"
+    }
+  ]
+}

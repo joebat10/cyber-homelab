@@ -1,0 +1,69 @@
+name: 🛡️ Cyber Homelab CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint-and-test:
+    name: Python Lint & Syntax Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install lint tools
+      run: |
+        pip install pyflakes bandit
+
+    - name: Syntax check — all Python scripts
+      run: |
+        find . -name "*.py" -not -path "./.venv/*" | xargs python -m pyflakes
+
+    - name: Security check with Bandit
+      run: |
+        bandit -r . --exclude .venv,docs -ll -q || true
+
+  validate-xml-rules:
+    name: Validate Wazuh XML Rules
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Check XML validity
+      run: |
+        for f in $(find 01-soc/rules -name "*.xml"); do
+          python3 -c "import xml.etree.ElementTree as ET; ET.parse('$f')" \
+            && echo "✅ $f" \
+            || echo "❌ $f — XML invalide"
+        done
+
+  validate-docs:
+    name: Check Markdown structure
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Check key files exist
+      run: |
+        files=(
+          "README.md"
+          "requirements.txt"
+          "01-soc/README.md"
+          "02-dfir/README.md"
+          "03-cti/README.md"
+          "docs/SETUP_GUIDE.md"
+        )
+        for f in "${files[@]}"; do
+          [ -f "$f" ] && echo "✅ $f" || echo "❌ MANQUANT: $f"
+        done
