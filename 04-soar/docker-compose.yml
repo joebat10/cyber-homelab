@@ -48,8 +48,8 @@ services:
     environment:
       CASSANDRA_CLUSTER_NAME: "cyber-homelab"
       CASSANDRA_DC: datacenter1
-      HEAP_NEWSIZE: 128M
-      MAX_HEAP_SIZE: 1G
+      MAX_HEAP_SIZE: "${CASSANDRA_MAX_HEAP:-512M}"
+      HEAP_NEWSIZE: "${CASSANDRA_HEAP_NEW:-64M}"
     volumes:
       - cassandra_data:/var/lib/cassandra
     healthcheck:
@@ -107,13 +107,13 @@ services:
     ports:
       - "${THEHIVE_PORT:-9010}:9000"
     environment:
-      JVM_OPTS: "-Xms512m -Xmx1g"
+      JVM_OPTS: "${THEHIVE_JVM_OPTS:--Xms256m -Xmx512m}"
       THEHIVE_SECRET: "${THEHIVE_SECRET}"
     volumes:
       - ./thehive/application.conf:/etc/thehive/application.conf:ro
       - thehive_data:/opt/thehive/files
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:9000/api/v1/status"]
+      test: ["CMD-SHELL", "curl -s -o /dev/null -w '%{http_code}' http://localhost:9000/api/v1/status | grep -Eq '^(200|401)$'"]
       interval: 30s
       timeout: 15s
       retries: 15
@@ -134,7 +134,7 @@ services:
     ports:
       - "${CORTEX_PORT:-9011}:9001"
     environment:
-      JVM_OPTS: "-Xms512m -Xmx1g"
+      JVM_OPTS: "${CORTEX_JVM_OPTS:--Xms256m -Xmx512m}"
       CORTEX_SECRET: "${CORTEX_SECRET}"
       job_directory: /tmp/cortex-jobs
     volumes:
@@ -183,8 +183,9 @@ services:
     networks:
       cyber-homelab-net:
         ipv4_address: 172.25.0.31
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redispassword}
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redispassword}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -192,7 +193,7 @@ services:
 
   # ── MISP — Threat Intelligence Platform ────────────────────────────────────
   misp:
-    image: coolacid/misp-docker:${MISP_VERSION:-latest}
+    image: ghcr.io/misp/misp-docker/misp-core:${MISP_VERSION:-latest}
     container_name: cyber-misp
     hostname: misp
     networks:
@@ -210,14 +211,15 @@ services:
       MYSQL_DATABASE: ${MISP_MYSQL_DATABASE:-misp}
       MYSQL_USER: ${MISP_MYSQL_USER:-misp}
       MYSQL_PASSWORD: ${MISP_MYSQL_PASSWORD}
-      REDIS_FQDN: "172.25.0.31"
+      REDIS_HOST: "172.25.0.31"
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD:-redispassword}"
       MISP_BASEURL: "https://localhost:${MISP_PORT:-8443}"
       MISP_ADMIN_EMAIL: ${MISP_ADMIN_EMAIL:-admin@cyber-homelab.local}
       MISP_ADMIN_PASSPHRASE: ${MISP_ADMIN_PASSWORD}
-      MISP_GPG_PASSWORD: ${MISP_GPG_PASSWORD}
-      CRON_USER_ID: "1"
+      SECURITY_ENCRYPTION_KEY: ${MISP_ENCRYPTION_KEY:-changeme_misp_encryption_key_32c}
     volumes:
-      - misp_data:/var/www/MISP/app/files
+      - misp_data:/var/www/MISPData
       - misp_gpg:/var/www/MISP/.gnupg
     healthcheck:
       test: ["CMD-SHELL", "curl -ks https://localhost/users/login | grep -qi 'MISP\\|login'"]
