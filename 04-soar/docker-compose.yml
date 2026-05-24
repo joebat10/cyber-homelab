@@ -1,0 +1,228 @@
+# =============================================================================
+# Cyber-homelab SOAR Stack
+# Services: TheHive 5 · Cortex 3 · MISP · Elasticsearch 7 · Cassandra 4
+#
+# Network: cyber-homelab-net (172.25.0.0/24) — isolated from other projects
+# Host ports: TheHive=9010, Cortex=9011, MISP=8443
+#   ⚠ Ports 9000/9001 avoided — cybergrc_minio already binds those on host
+#
+# Usage: cp .env.example .env && edit .env && make start
+# =============================================================================
+
+networks:
+  cyber-homelab-net:
+    name: cyber-homelab-net
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.25.0.0/24
+          gateway: 172.25.0.1
+
+volumes:
+  cassandra_data:
+    name: cyber-homelab-cassandra
+  elasticsearch_data:
+    name: cyber-homelab-elasticsearch
+  thehive_data:
+    name: cyber-homelab-thehive
+  cortex_jobs:
+    name: cyber-homelab-cortex-jobs
+  mysql_data:
+    name: cyber-homelab-mysql
+  misp_data:
+    name: cyber-homelab-misp-data
+  misp_gpg:
+    name: cyber-homelab-misp-gpg
+
+services:
+
+  # ── Cassandra 4 — TheHive primary storage ──────────────────────────────────
+  cassandra:
+    image: cassandra:${CASSANDRA_VERSION:-4.1}
+    container_name: cyber-cassandra
+    hostname: cassandra
+    networks:
+      cyber-homelab-net:
+        ipv4_address: 172.25.0.10
+    environment:
+      CASSANDRA_CLUSTER_NAME: "cyber-homelab"
+      CASSANDRA_DC: datacenter1
+      HEAP_NEWSIZE: 128M
+      MAX_HEAP_SIZE: 1G
+    volumes:
+      - cassandra_data:/var/lib/cassandra
+    healthcheck:
+      test: ["CMD-SHELL", "nodetool status | grep -q '^UN'"]
+      interval: 30s
+      timeout: 10s
+      retries: 12
+      start_period: 60s
+    restart: unless-stopped
+
+  # ── Elasticsearch 7.17 — TheHive index + Cortex storage ────────────────────
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTICSEARCH_VERSION:-7.17.15}
+    container_name: cyber-elasticsearch
+    hostname: elasticsearch
+    networks:
+      cyber-homelab-net:
+        ipv4_address: 172.25.0.11
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      bootstrap.memory_lock: "true"
+      ES_JAVA_OPTS: "-Xms${ELASTICSEARCH_HEAP:-512m} -Xmx${ELASTICSEARCH_HEAP:-512m}"
+      cluster.name: cyber-homelab
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health | grep -vq '\"status\":\"red\"'"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+
+  # ── TheHive 5 — Case Management Platform ───────────────────────────────────
+  thehive:
+    image: strangebee/thehive:${THEHIVE_VERSION:-5.3}
+    container_name: cyber-thehive
+    hostname: thehive
+    networks:
+      cyber-homelab-net:
+        ipv4_address: 172.25.0.20
+    depends_on:
+      cassandra:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    ports:
+      - "${THEHIVE_PORT:-9010}:9000"
+    environment:
+      JVM_OPTS: "-Xms512m -Xmx1g"
+      THEHIVE_SECRET: "${THEHIVE_SECRET}"
+    volumes:
+      - ./thehive/application.conf:/etc/thehive/application.conf:ro
+      - thehive_data:/opt/thehive/files
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9000/api/v1/status"]
+      interval: 30s
+      timeout: 15s
+      retries: 15
+      start_period: 120s
+    restart: unless-stopped
+
+  # ── Cortex 3 — Observable Analysis Engine ──────────────────────────────────
+  cortex:
+    image: thehiveproject/cortex:${CORTEX_VERSION:-3.1.8}
+    container_name: cyber-cortex
+    hostname: cortex
+    networks:
+      cyber-homelab-net:
+        ipv4_address: 172.25.0.21
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    ports:
+      - "${CORTEX_PORT:-9011}:9001"
+    environment:
+      JVM_OPTS: "-Xms512m -Xmx1g"
+      CORTEX_SECRET: "${CORTEX_SECRET}"
+      job_directory: /tmp/cortex-jobs
+    volumes:
+      - ./cortex/application.conf:/etc/cortex/application.conf:ro
+      - cortex_jobs:/tmp/cortex-jobs
+      # Docker socket — lets Cortex run analyzers as sibling containers
+      # On Windows/Docker Desktop this works via the Docker Desktop Linux VM
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9001/api/status"]
+      interval: 30s
+      timeout: 15s
+      retries: 15
+      start_period: 90s
+    restart: unless-stopped
+
+  # ── MySQL 8 — MISP database ─────────────────────────────────────────────────
+  mysql:
+    image: mysql:${MYSQL_VERSION:-8.0}
+    container_name: cyber-mysql
+    hostname: mysql
+    networks:
+      cyber-homelab-net:
+        ipv4_address: 172.25.0.30
+    environment:
+      MYSQL_DATABASE: ${MISP_MYSQL_DATABASE:-misp}
+      MYSQL_USER: ${MISP_MYSQL_USER:-misp}
+      MYSQL_PASSWORD: ${MISP_MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MISP_MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  # ── Redis 7 — MISP cache ─────────────────────────────────────────────────────
+  redis:
+    image: redis:${REDIS_VERSION:-7-alpine}
+    container_name: cyber-redis
+    hostname: redis
+    networks:
+      cyber-homelab-net:
+        ipv4_address: 172.25.0.31
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── MISP — Threat Intelligence Platform ────────────────────────────────────
+  misp:
+    image: coolacid/misp-docker:${MISP_VERSION:-latest}
+    container_name: cyber-misp
+    hostname: misp
+    networks:
+      cyber-homelab-net:
+        ipv4_address: 172.25.0.40
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${MISP_PORT:-8443}:443"
+    environment:
+      MYSQL_HOST: "172.25.0.30"
+      MYSQL_DATABASE: ${MISP_MYSQL_DATABASE:-misp}
+      MYSQL_USER: ${MISP_MYSQL_USER:-misp}
+      MYSQL_PASSWORD: ${MISP_MYSQL_PASSWORD}
+      REDIS_FQDN: "172.25.0.31"
+      MISP_BASEURL: "https://localhost:${MISP_PORT:-8443}"
+      MISP_ADMIN_EMAIL: ${MISP_ADMIN_EMAIL:-admin@cyber-homelab.local}
+      MISP_ADMIN_PASSPHRASE: ${MISP_ADMIN_PASSWORD}
+      MISP_GPG_PASSWORD: ${MISP_GPG_PASSWORD}
+      CRON_USER_ID: "1"
+    volumes:
+      - misp_data:/var/www/MISP/app/files
+      - misp_gpg:/var/www/MISP/.gnupg
+    healthcheck:
+      test: ["CMD-SHELL", "curl -ks https://localhost/users/login | grep -qi 'MISP\\|login'"]
+      interval: 60s
+      timeout: 30s
+      retries: 10
+      start_period: 180s
+    restart: unless-stopped
