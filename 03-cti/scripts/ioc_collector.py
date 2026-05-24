@@ -18,7 +18,6 @@ import argparse
 import csv
 import json
 import os
-import sys
 import time
 import uuid
 from dataclasses import dataclass, field, asdict

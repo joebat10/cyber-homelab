@@ -23,7 +23,6 @@ import argparse
 import csv
 import hashlib
 import json
-import os
 import sys
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
@@ -221,7 +220,6 @@ class EventLogAnalyzer:
         # Méthode 2 : python-evtx (cross-platform)
         try:
             import Evtx.Evtx as evtx
-            import Evtx.Views as e_views
             
             with evtx.Evtx(evtx_path) as log:
                 for record in log.records():
@@ -245,8 +243,7 @@ class EventLogAnalyzer:
     def _parse_with_wevtutil(self, evtx_path: str) -> list[ForensicEvent]:
         """Parser via wevtutil (Windows natif)."""
         import subprocess
-        import xml.etree.ElementTree as ET
-        
+
         events = []
         try:
             result = subprocess.run(
@@ -638,7 +635,7 @@ class ReportGenerator:
                    f"| {ev.get('user', '')} "
                    f"| {ev.get('ip', '')} |\n")
 
-        md += f"""
+        md += """
 ---
 
 ## 4. Indicateurs de Compromission (IOC)
@@ -660,7 +657,7 @@ class ReportGenerator:
         for item in case.persistence_items:
             md += f"- **{item.get('type', '')}** : `{item.get('value', '')}`\n"
 
-        md += f"""
+        md += """
 ---
 
 ## 6. Recommandations

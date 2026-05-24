@@ -19,10 +19,8 @@ import argparse
 import csv
 import json
 import os
-import sys
 import time
 from datetime import datetime, timedelta
-from pathlib import Path
 from typing import Optional
 
 import requests
@@ -37,8 +35,6 @@ try:
     from rich.console import Console
     from rich.table import Table
     from rich.panel import Panel
-    from rich.progress import Progress, SpinnerColumn, TextColumn
-    from rich import print as rprint
     RICH_AVAILABLE = True
     console = Console()
 except ImportError:
@@ -513,7 +509,7 @@ def main() -> None:
     )
 
     if not alerts:
-        print(f"[INFO] Aucune alerte trouvée avec ces critères.")
+        print("[INFO] Aucune alerte trouvée avec ces critères.")
         return
 
     # Affichage ou export

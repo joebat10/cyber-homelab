@@ -21,7 +21,6 @@ import time
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import requests
 from dotenv import load_dotenv

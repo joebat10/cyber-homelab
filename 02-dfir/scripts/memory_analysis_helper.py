@@ -12,15 +12,12 @@ Prérequis : pip install volatility3
             https://github.com/volatilityfoundation/volatility3
 """
 
-import os
-import sys
 import json
 import subprocess
 import argparse
 import shutil
 from datetime import datetime
-from pathlib import Path
-from typing import List, Optional
+from typing import List
 from dataclasses import dataclass, asdict
 
 
@@ -230,7 +227,7 @@ class ProcessAnalyzer:
                 if any(legit.replace(".exe", "") in proc.name.lower()
                        for legit in KNOWN_LEGIT_PROCESSES if ".exe" in legit):
                     proc.suspicious = True
-                    proc.anomaly = f"Nom similaire à un processus système légitime"
+                    proc.anomaly = "Nom similaire à un processus système légitime"
                     proc.mitre = "T1036.005"
 
             if proc.suspicious:
@@ -335,7 +332,7 @@ def print_report(report: MemoryReport):
     for f in (report.findings_summary or []):
         print(f"  {f}")
 
-    print(f"\n━"*60)
+    print("\n━"*60)
     print("  💻 PROCESSUS SUSPECTS")
     print("━"*60)
     for p in report.processes:
@@ -347,7 +344,7 @@ def print_report(report: MemoryReport):
             if p.cmd:
                 print(f"    Cmdline : {p.cmd[:100]}")
 
-    print(f"\n━"*60)
+    print("\n━"*60)
     print("  🌐 CONNEXIONS RÉSEAU SUSPECTES")
     print("━"*60)
     for n in report.network:
@@ -355,7 +352,7 @@ def print_report(report: MemoryReport):
             print(f"\n  {n.process} (PID {n.pid})")
             print(f"    {n.local_addr}:{n.local_port} → {n.remote_addr}:{n.remote_port} [{n.state}]")
 
-    print(f"\n━"*60)
+    print("\n━"*60)
     print("  💉 INJECTIONS MÉMOIRE (Malfind)")
     print("━"*60)
     for m in report.malfind:

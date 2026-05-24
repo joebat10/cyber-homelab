@@ -13,17 +13,12 @@ Points d'intérêt DFIR :
   - Evidence de compression/archivage
 """
 
-import os
-import sys
 import json
 import csv
-import struct
 import argparse
-import subprocess
-from datetime import datetime, timezone
+from datetime import datetime
 from dataclasses import dataclass, asdict
-from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 try:
     import winreg
@@ -32,14 +27,13 @@ except ImportError:
     WINREG_AVAILABLE = False
 
 try:
-    from Registry import Registry   # python-registry
+    __import__("Registry")   # python-registry — availability check
     REGISTRY_LIB = True
 except ImportError:
     REGISTRY_LIB = False
 
 try:
     from rich.console import Console
-    from rich.table import Table
     console = Console()
     RICH = True
 except ImportError:

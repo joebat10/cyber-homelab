@@ -9,15 +9,12 @@ Auteur  : Joe Bichall (@joebat10)
 Usage : python simulate_attack.py --scenario kerberoasting --verbose
 """
 
-import os
 import sys
 import json
 import socket
-import struct
 import time
 import random
 import argparse
-import subprocess
 from datetime import datetime
 
 # ─── SCÉNARIOS D'ATTAQUE ──────────────────────────────────────────────────────
@@ -186,9 +183,9 @@ def write_to_wazuh_ossec_log(log: dict):
     try:
         with open(ossec_log_path, "a") as f:
             f.write(msg)
-        print(f"    [→] Log injecté dans ossec.log")
+        print("    [→] Log injecté dans ossec.log")
     except Exception:
-        print(f"    [i] ossec.log non accessible (normal si pas d'agent Wazuh local)")
+        print("    [i] ossec.log non accessible (normal si pas d'agent Wazuh local)")
 
 
 def run_scenario(name: str, verbose: bool, dry_run: bool, output_json: str):

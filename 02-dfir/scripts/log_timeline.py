@@ -12,21 +12,18 @@ Sources supportées :
   - Fichiers texte horodatés
 """
 
-import os
 import re
 import csv
 import json
 import argparse
 import subprocess
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, asdict
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 try:
     from rich.console import Console
-    from rich.table import Table
-    from rich.progress import track
     RICH = True
     console = Console()
 except ImportError:
@@ -119,7 +116,7 @@ class EventLogParser:
             # wevtutil est disponible nativement sur Windows
             cmd = [
                 "wevtutil", "qe", str(path),
-                "/f:text", "/rd:true", f"/c:1000"
+                "/f:text", "/rd:true", "/c:1000"
             ]
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             if result.returncode == 0:
@@ -326,7 +323,7 @@ class TimelineBuilder:
         print(f"  🟠 Hauts     : {sevs['high']}")
         print(f"  🟡 Moyens    : {sevs['medium']}")
         print(f"  ℹ️  Info      : {sevs['info']}")
-        print(f"\n  Catégories :")
+        print("\n  Catégories :")
         for cat, count in sorted(cats.items(), key=lambda x: -x[1])[:8]:
             print(f"    {cat:<15} {count}")
 

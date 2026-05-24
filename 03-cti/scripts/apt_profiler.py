@@ -12,10 +12,7 @@ Sources : MITRE ATT&CK, CISA Advisories, Mandiant/Google Threat Intelligence
 
 import json
 import argparse
-from datetime import datetime
 from pathlib import Path
-from dataclasses import dataclass, asdict, field
-from typing import List, Dict
 
 # ─── DONNÉES APT (SOURCES PUBLIQUES MITRE ATT&CK + CISA) ─────────────────────
 
@@ -207,7 +204,7 @@ def format_text_report(group_data: dict) -> str:
     lines.append(f"  Actif depuis : {group_data['active_since']}")
     lines.append(f"  MITRE ID     : {group_data['mitre_group_id']}")
     lines.append(f"  Motivation   : {group_data['motivation']}")
-    lines.append(f"\n  Cibles principales :")
+    lines.append("\n  Cibles principales :")
     for t in group_data["targets"]:
         lines.append(f"    • {t}")
 
