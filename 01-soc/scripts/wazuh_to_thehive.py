@@ -426,7 +426,7 @@ def main() -> None:
         bridge.watch(interval=args.interval)
     else:
         print(f"\n[Run] Processing alerts from last {args.hours}h (level >= {args.level})...")
-        count = bridge.process_alerts(hours=args.hours)
+        bridge.process_alerts(hours=args.hours)
         print(f"\n[Done] Forwarded: {bridge.stats['forwarded']}  "
               f"Duplicates skipped: {bridge.stats['skipped_dup']}  "
               f"Errors: {bridge.stats['errors']}")

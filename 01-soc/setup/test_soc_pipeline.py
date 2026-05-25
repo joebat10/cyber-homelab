@@ -20,13 +20,12 @@ Usage:
 """
 
 import argparse
-import json
 import os
 import socket
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 
 import requests
@@ -145,7 +144,7 @@ def test_wazuh_api(results: Results) -> Optional[str]:
         return token
     except requests.exceptions.ConnectionError:
         results.fail(name, "Connection refused — is the Wazuh VM running?")
-    except requests.exceptions.HTTPError as e:
+    except requests.exceptions.HTTPError:
         results.fail(name, f"HTTP {resp.status_code} — wrong credentials?")
     except Exception as e:
         results.fail(name, str(e))
@@ -325,7 +324,7 @@ def main():
         results.skip("TheHive — create test alert", "No API key")
         results.skip("TheHive — retrieve test alert","No API key")
     else:
-        thehive_ok = test_thehive_api(results, THEHIVE_API_KEY)
+        test_thehive_api(results, THEHIVE_API_KEY)
 
     test_cortex_api(results)
 
