@@ -1,183 +1,329 @@
-# 🔍 Module 01 — SOC : Détection & Monitoring
+# Module 01 — SOC : Detection & Monitoring
 
-> **Outils :** Wazuh 4.x + Sysmon 15.x  
-> **Référentiel :** FIRST CSIRT Services Framework — *Information Security Event Management*  
-> **Cas pratique :** Détection attaques Active Directory (T1003, T1558, T1021)
+> **Tools:** Wazuh 4.x + Sysmon 15.x + TheHive 5 integration
+> **Framework:** FIRST CSIRT Services Framework — *Information Security Event Management*
+> **Use case:** Active Directory attack detection (T1003, T1558, T1021)
 
 ---
 
-## 📋 Contenu du module
+## Architecture
 
 ```
-01-soc/
-├── README.md                         ← Ce fichier
-├── rules/
-│   ├── wazuh_ad_attacks.xml          ← Règles détection AD (PTH, Kerberoast, DCSync)
-│   ├── wazuh_lolbins.xml             ← Living-off-the-land binaries
-│   ├── wazuh_lateral_movement.xml    ← Mouvement latéral WinRM/SMB
-│   └── sigma_to_wazuh.py            ← Convertisseur Sigma → Wazuh XML
-├── scripts/
-│   ├── wazuh_alert_manager.py        ← Gestionnaire d'alertes automatisé
-│   ├── alert_enricher.py            ← Enrichissement IOC (VirusTotal/Shodan)
-│   ├── soc_dashboard_exporter.py    ← Export métriques dashboard
-│   └── simulate_attack.py           ← Générateur d'événements de test
-├── configs/
-│   ├── sysmon_config.xml            ← Config Sysmon (basé SwiftOnSecurity)
-│   └── wazuh_agent.conf             ← Config agent Wazuh Windows
-└── docs/
-    ├── INSTALL_WAZUH.md             ← Guide installation Wazuh (Ubuntu VM)
-    ├── INSTALL_SYSMON.md            ← Guide installation Sysmon Windows
-    └── DETECTION_RULES.md           ← Documentation des règles custom
+Windows 11 Host (you)
+  ├── VMware VM ──── Ubuntu 22.04 ── Wazuh Manager 4.x (192.168.56.10)
+  │                                      ├── Wazuh Indexer   (port 9200)
+  │                                      └── Wazuh Dashboard (port 443)
+  │
+  ├── Docker (04-soar/)
+  │     ├── TheHive 5  (port 9010)
+  │     └── Cortex 3   (port 9011)
+  │
+  └── Wazuh Agent ── forwards Sysmon events → Wazuh Manager
+        (installed on this Windows host or lab VMs)
 ```
 
 ---
 
-## 🚀 Installation rapide
+## Installation Order
 
-### Étape 1 — Créer la VM Wazuh Manager
+Follow these steps in sequence. Each step depends on the previous.
 
-**Prérequis :** VirtualBox installé sur Windows 11
-
-```bash
-# Télécharger l'OVA Wazuh pré-configurée (le plus simple)
-# https://documentation.wazuh.com/current/deployment-options/virtual-machine/virtual-machine.html
-
-# OU installation manuelle sur Ubuntu 22.04 :
-curl -sO https://packages.wazuh.com/4.7/wazuh-install.sh
-sudo bash wazuh-install.sh -a
-
-# Accès dashboard : https://<IP_VM>:443
-# User: admin / Pass: généré à l'installation
-```
-
-> 💡 **Recommandation :** Utiliser l'OVA officielle Wazuh (All-in-One). Elle inclut Wazuh Manager + Indexer + Dashboard en 1 VM. RAM : 4 Go minimum.
-
-### Étape 2 — Installer Sysmon sur Windows (hôte ou VM cible)
+### Step 1 — Start the SOAR stack (TheHive + Cortex)
 
 ```powershell
-# PowerShell (Admin) — Téléchargement Sysmon
-Invoke-WebRequest -Uri "https://download.sysinternals.com/files/Sysmon.zip" -OutFile "$env:TEMP\Sysmon.zip"
-Expand-Archive "$env:TEMP\Sysmon.zip" -DestinationPath "$env:TEMP\Sysmon"
-
-# Télécharger notre config Sysmon
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/joebat10/cyber-homelab/main/01-soc/configs/sysmon_config.xml" -OutFile "$env:TEMP\sysmon_config.xml"
-
-# Installer Sysmon avec la config
-cd "$env:TEMP\Sysmon"
-.\Sysmon64.exe -accepteula -i ..\sysmon_config.xml
-
-# Vérifier l'installation
-Get-Service Sysmon64
+# From the project root
+cd 04-soar
+docker compose up -d
+# Wait ~2 minutes for all services to become healthy
+docker compose ps
 ```
 
-### Étape 3 — Déployer l'agent Wazuh sur Windows
+TheHive will be at `http://127.0.0.1:9010` — login: `admin@admin.test` / `MISPadmin2024!Lab`
 
-```powershell
-# Télécharger l'installeur agent (remplacer <WAZUH_MANAGER_IP>)
-$WAZUH_IP = "192.168.56.10"  # IP de ta VM Wazuh
+### Step 2 — Install Wazuh on Ubuntu 22.04 VM
 
-Invoke-WebRequest -Uri "https://packages.wazuh.com/4.x/windows/wazuh-agent-4.7.0-1.msi" -OutFile "$env:TEMP\wazuh-agent.msi"
-
-# Installer et enregistrer l'agent
-msiexec.exe /i "$env:TEMP\wazuh-agent.msi" /q WAZUH_MANAGER="$WAZUH_IP" WAZUH_AGENT_NAME="WIN11-LAB"
-
-# Démarrer le service
-NET START WazuhSvc
-```
-
-### Étape 4 — Déployer les règles custom
+Open your VMware console to the Ubuntu 22.04 VM (IP: 192.168.56.10).
 
 ```bash
-# Sur le serveur Wazuh Manager (SSH dans la VM Ubuntu)
-cd /var/ossec/etc/rules/
+# On the Ubuntu VM
+git clone https://github.com/joebat10/cyber-homelab.git
+cd cyber-homelab/01-soc/setup
+chmod +x install_wazuh.sh
+sudo bash install_wazuh.sh
+```
 
-# Copier nos règles
-sudo cp /path/to/cyber-homelab/01-soc/rules/*.xml .
+**What it does:** Runs the official Wazuh 4.9 all-in-one installer
+(Manager + Indexer + Dashboard), deploys custom rules, opens firewall ports.
 
-# Recharger Wazuh
+**Duration:** 10–20 minutes depending on network.
+
+**After install:**
+- Dashboard: `https://192.168.56.10` (accept self-signed cert)
+- API: `https://192.168.56.10:55000`
+- Save the admin password printed at the end
+
+### Step 3 — Install Sysmon on Windows (this machine)
+
+```powershell
+# PowerShell as Administrator
+cd 01-soc\setup
+.\install_sysmon.ps1
+# Uses SwiftOnSecurity config by default
+# To use local repo config instead:
+.\install_sysmon.ps1 -UseLocalConfig
+```
+
+Sysmon captures process creation, network connections, LSASS access events, etc.
+These feed directly into the Wazuh agent.
+
+### Step 4 — Install Wazuh agent on Windows (this machine)
+
+```powershell
+# PowerShell as Administrator
+cd 01-soc\setup
+.\install_agent_windows.ps1
+# With custom agent name:
+.\install_agent_windows.ps1 -ManagerIP 192.168.56.10 -AgentName "WIN11-LAB"
+```
+
+Verify on the Wazuh Manager:
+```bash
+sudo /var/ossec/bin/agent_control -l
+```
+
+### Step 5 — Deploy custom detection rules
+
+```bash
+# On the Wazuh Manager VM
+RULES_DIR="/var/ossec/etc/rules"
+REPO="/home/$USER/cyber-homelab/01-soc/rules"
+sudo cp "$REPO"/*.xml "$RULES_DIR/"
 sudo /var/ossec/bin/wazuh-control restart
 ```
 
+### Step 6 — Get your TheHive API key
+
+1. Open `http://127.0.0.1:9010`
+2. Log in as `admin@admin.test`
+3. Top-right menu → **API Key** → copy the key
+4. Add it to `01-soc/.env`:
+
+```bash
+# 01-soc/.env (create this file, do NOT commit it)
+THEHIVE_API_KEY=your_api_key_here
+WAZUH_PASS=your_wazuh_admin_password_here
+```
+
+### Step 7 — Run the bridge (Wazuh → TheHive)
+
+```bash
+# One-shot: forward all level 10+ alerts from the last 24h
+cd 01-soc
+python scripts/wazuh_to_thehive.py
+
+# Daemon mode: watch and forward in real time
+python scripts/wazuh_to_thehive.py --watch
+
+# Only HIGH and CRITICAL (level 12+)
+python scripts/wazuh_to_thehive.py --watch --level 12
+```
+
+### Step 8 — Run the pipeline test
+
+```bash
+cd 01-soc/setup
+python test_soc_pipeline.py --thehive-key <your_api_key>
+```
+
+All 8 checks should pass. See Troubleshooting if any fail.
+
 ---
 
-## 🎯 Cas pratique — Détection attaques Active Directory
+## File Structure
 
-### Scénario
-Simulation des techniques d'attaque AD documentées dans le *"Attacking Active Directory with Linux Lab Manual"* pour construire et valider nos règles de détection.
+```
+01-soc/
+├── README.md
+├── setup/
+│   ├── install_wazuh.sh              ← Wazuh Manager install (Ubuntu 22.04)
+│   ├── install_agent_windows.ps1     ← Wazuh agent install (Windows)
+│   ├── install_sysmon.ps1            ← Sysmon install with SwiftOnSecurity config
+│   └── test_soc_pipeline.py          ← End-to-end connectivity test
+├── scripts/
+│   ├── wazuh_to_thehive.py           ← Wazuh alert → TheHive bridge (daemon)
+│   ├── wazuh_alert_manager.py        ← Alert viewer / exporter / watch mode
+│   ├── alert_enricher.py             ← IOC enrichment (VirusTotal/Shodan)
+│   ├── simulate_attack.py            ← Synthetic attack event generator
+│   └── soc_dashboard_exporter.py     ← Dashboard metrics exporter
+├── rules/
+│   ├── wazuh_ad_attacks.xml          ← AD attack rules (PTH, Kerberoast, DCSync)
+│   ├── wazuh_lolbins.xml             ← Living-off-the-land binary rules
+│   └── wazuh_lateral_movement.xml    ← WinRM / SMB lateral movement rules
+├── configs/
+│   └── sysmon_config.xml             ← Sysmon config (SwiftOnSecurity base)
+└── docs/
+    ├── INSTALL_WAZUH.md
+    └── INSTALL_SYSMON.md
+```
 
-### Attaques simulées & détections
+---
 
-#### T1003.001 — LSASS Memory Dump (Mimikatz/ProcDump)
+## How to Verify Everything Works
+
+### Check Wazuh services (on the VM)
+
+```bash
+sudo systemctl status wazuh-manager wazuh-indexer wazuh-dashboard
+sudo /var/ossec/bin/wazuh-control status
+```
+
+### Check agent is connected (on the VM)
+
+```bash
+sudo /var/ossec/bin/agent_control -l
+# Expected: your Windows agent listed as Active
+```
+
+### Check alerts flowing (from Windows)
+
+```bash
+# View live alerts in terminal (requires Wazuh to be running)
+python 01-soc/scripts/wazuh_alert_manager.py --watch --level 7
+
+# Export last 24h alerts to CSV
+python 01-soc/scripts/wazuh_alert_manager.py --export --output alerts.csv
+```
+
+### Simulate an attack (test detection)
+
+```bash
+python 01-soc/scripts/simulate_attack.py --host 192.168.56.10
+```
+
+### Run full pipeline test
+
+```bash
+python 01-soc/setup/test_soc_pipeline.py --thehive-key <key>
+```
+
+---
+
+## Scripts Reference
+
+### `wazuh_to_thehive.py`
+
+```bash
+python scripts/wazuh_to_thehive.py --help
+
+# One-shot (last 24h, level >= 10)
+python scripts/wazuh_to_thehive.py --thehive-key <key>
+
+# Daemon
+python scripts/wazuh_to_thehive.py --watch --thehive-key <key>
+
+# Only forward critical
+python scripts/wazuh_to_thehive.py --watch --level 13 --thehive-key <key>
+```
+
+### `wazuh_alert_manager.py`
+
+```bash
+# Terminal table view
+python scripts/wazuh_alert_manager.py --level 10
+
+# Export CSV
+python scripts/wazuh_alert_manager.py --export --output alerts.csv --hours 48
+
+# Statistics
+python scripts/wazuh_alert_manager.py --stats
+
+# Filter by MITRE technique
+python scripts/wazuh_alert_manager.py --mitre T1003
+```
+
+---
+
+## Detection Rules Summary
+
+| Rule | Wazuh ID | MITRE | Level | Description |
+|------|----------|-------|-------|-------------|
+| LSASS Access | 100001 | T1003.001 | 15 | LSASS memory access (Mimikatz) |
+| Kerberoasting | 100002 | T1558.003 | 13 | RC4 ticket for service account |
+| DCSync | 100003 | T1003.006 | 15 | AD replication (DS-Replication-Get-Changes) |
+| Pass-the-Hash | 100004 | T1550.002 | 14 | NTLM hash logon |
+| LOLBin Execution | 100010 | T1218 | 10 | certutil / mshta / regsvr32 |
+| WinRM Lateral | 100020 | T1021.006 | 12 | Suspicious WinRM session |
+| Scheduled Task | 100030 | T1053.005 | 11 | Scheduled task creation |
+| NTLM Dump | 100040 | T1003 | 14 | NTLM dump via secretsdump |
+
+---
+
+## Troubleshooting
+
+### Wazuh agent not connecting to manager
+
+```powershell
+# Windows host
+Test-NetConnection -ComputerName 192.168.56.10 -Port 1514
+# Must be True — if not, open port on VM:
+# sudo ufw allow 1514/tcp
+```
+
+```bash
+# On VM — check manager is listening
+ss -tlnp | grep "1514\|1515"
+# If not listening: sudo systemctl restart wazuh-manager
+```
+
+### TheHive API key rejected (401)
+
+```
+TheHive → login → top-right avatar → API Key → copy
+Set in 01-soc/.env:  THEHIVE_API_KEY=<key>
+```
+
+### Wazuh API wrong password
+
+The admin password is printed at the end of `install_wazuh.sh` and saved
+in `/tmp/wazuh_install.log` on the VM. You can also reset it:
+
+```bash
+# On the Wazuh VM
+sudo /var/ossec/bin/wazuh-passwords-tool -u admin -p NewPassword123!
+```
+
+### Sysmon events not appearing in Wazuh
+
+Check the Wazuh agent config on Windows includes the Sysmon channel:
+
 ```xml
-<!-- règle Wazuh — voir rules/wazuh_ad_attacks.xml -->
-Event ID 10 (Sysmon ProcessAccess) sur lsass.exe
-→ Alert LEVEL 15 : Credential Access - LSASS Memory Access
+<!-- C:\Program Files (x86)\ossec-agent\ossec.conf -->
+<localfile>
+  <location>Microsoft-Windows-Sysmon/Operational</location>
+  <log_format>eventchannel</log_format>
+</localfile>
 ```
 
-#### T1558.003 — Kerberoasting
-```
-Event ID 4769 (Windows Security) — Kerberos Service Ticket Request
-Conditions : TicketEncryptionType = 0x17 (RC4) + non-machine account
-→ Alert LEVEL 13 : Credential Access - Kerberoasting Attempt
+Restart agent after any config change:
+```powershell
+Restart-Service WazuhSvc
 ```
 
-#### T1021.006 — WinRM Lateral Movement
-```
-Event ID 4624 (Logon Type 3) + Event ID 7045 (New Service)
-→ Alert LEVEL 12 : Lateral Movement - WinRM Session
-```
+### wazuh_to_thehive.py: "Cannot connect to Wazuh API"
 
-### Résultats en dashboard
-
-![Dashboard Wazuh - Alertes AD](../docs/screenshots/wazuh_ad_dashboard.png)
-*(Screenshot à remplacer avec votre instance)*
-
----
-
-## 🐍 Scripts Python
-
-### `wazuh_alert_manager.py` — Gestion automatisée des alertes
 ```bash
-# Lancer le manager d'alertes (mode watch)
-python scripts/wazuh_alert_manager.py --host 192.168.56.10 --watch
-
-# Exporter les alertes des dernières 24h en CSV
-python scripts/wazuh_alert_manager.py --export --hours 24 --output alerts.csv
-
-# Mode triage : afficher seulement les alertes HIGH
-python scripts/wazuh_alert_manager.py --level 12 --format rich
-```
-
-### `alert_enricher.py` — Enrichissement IOC
-```bash
-# Enrichir une IP avec VirusTotal + Shodan
-python scripts/alert_enricher.py --ip 185.220.101.45
-
-# Enrichir depuis un fichier d'alertes
-python scripts/alert_enricher.py --file alerts.csv --output enriched.json
+# Verify API port is open from Windows host
+python -c "import socket; s=socket.create_connection(('192.168.56.10', 55000), 3); print('OK')"
+# If timeout: check ufw on the VM (sudo ufw allow 55000/tcp)
 ```
 
 ---
 
-## 📏 Règles de détection — Résumé
-
-| Règle | ID Wazuh | MITRE | Niveau | Description |
-|-------|----------|-------|--------|-------------|
-| LSASS Access | 100001 | T1003.001 | 15 | Accès mémoire LSASS (Mimikatz) |
-| Kerberoasting | 100002 | T1558.003 | 13 | Ticket RC4 pour service account |
-| DCSync | 100003 | T1003.006 | 15 | Réplication AD (DS-Replication-Get-Changes) |
-| Pass-the-Hash | 100004 | T1550.002 | 14 | Logon avec hash NTLM |
-| LOLBin Execution | 100010 | T1218 | 10 | Exécution via certutil/mshta/regsvr32 |
-| WinRM Lateral | 100020 | T1021.006 | 12 | Session WinRM suspecte |
-| Scheduled Task | 100030 | T1053.005 | 11 | Création tâche planifiée |
-| NTLM Hash Dump | 100040 | T1003 | 14 | Dump NTLM via secretsdump |
-
----
-
-## 📚 Références
+## References
 
 - [Wazuh Documentation](https://documentation.wazuh.com)
+- [Wazuh API Reference](https://documentation.wazuh.com/current/user-manual/api/reference.html)
+- [TheHive 5 API](https://docs.strangebee.com/thehive/api-docs/)
 - [Sysmon Config — SwiftOnSecurity](https://github.com/SwiftOnSecurity/sysmon-config)
-- [Sigma Rules — SigmaHQ](https://github.com/SigmaHQ/sigma)
 - [MITRE ATT&CK Enterprise](https://attack.mitre.org/matrices/enterprise/)
-- [Wazuh SIEM Rules (wazuh-myrules)](https://github.com/socfortress/wazuh-myrules)
+- [Sigma Rules — SigmaHQ](https://github.com/SigmaHQ/sigma)

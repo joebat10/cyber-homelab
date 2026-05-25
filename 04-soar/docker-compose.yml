@@ -214,7 +214,7 @@ services:
       REDIS_HOST: "172.25.0.31"
       REDIS_PORT: "6379"
       REDIS_PASSWORD: "${REDIS_PASSWORD:-redispassword}"
-      MISP_BASEURL: "https://localhost:${MISP_PORT:-8443}"
+      MISP_BASEURL: "https://127.0.0.1:${MISP_PORT:-8443}"
       MISP_ADMIN_EMAIL: ${MISP_ADMIN_EMAIL:-admin@cyber-homelab.local}
       MISP_ADMIN_PASSPHRASE: ${MISP_ADMIN_PASSWORD}
       SECURITY_ENCRYPTION_KEY: ${MISP_ENCRYPTION_KEY:-changeme_misp_encryption_key_32c}
