@@ -45,7 +45,7 @@ load_dotenv()
 
 WAZUH_HOST = os.getenv("WAZUH_HOST", "192.168.56.10")
 WAZUH_PORT = int(os.getenv("WAZUH_PORT", "55000"))
-WAZUH_USER = os.getenv("WAZUH_USER", "admin")
+WAZUH_USER = os.getenv("WAZUH_USER", "wazuh")
 WAZUH_PASS = os.getenv("WAZUH_PASS", "")
 
 THEHIVE_URL     = os.getenv("THEHIVE_URL", "http://127.0.0.1:9010")

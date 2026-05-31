@@ -25,7 +25,7 @@
   </rule>
 
   <!-- Exclusion LSASS légitime — Sécurité AD Windows -->
-  <rule id="100001b" level="0">
+  <rule id="100091" level="0">
     <if_sid>100001</if_sid>
     <field name="win.eventdata.sourceImage" type="pcre2">(?i)(antimalware|windows\\system32\\werfault|csrss)</field>
     <description>False positive: Legitimate LSASS access from system process</description>
@@ -47,9 +47,9 @@
   </rule>
 
   <!-- Kerberoasting — multiple tickets RC4 (high confidence) -->
-  <rule id="100002b" level="15" frequency="5" timeframe="60">
+  <rule id="100092" level="15" frequency="5" timeframe="60">
     <if_matched_sid>100002</if_matched_sid>
-    <same_field>win.eventdata.clientAddress</same_field>
+    <same_source_ip />
     <description>CRITICAL: Multiple Kerberos RC4 requests - Active Kerberoasting Attack</description>
     <mitre>
       <id>T1558.003</id>
