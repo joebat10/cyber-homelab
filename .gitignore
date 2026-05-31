@@ -51,3 +51,7 @@ desktop.ini
 # Wazuh local
 wazuh_certs/
 ossec.log
+
+# Credentials (never commit)
+01-soc/docs/WAZUH_CREDENTIALS.md
+WAZUH_CREDENTIALS.md
