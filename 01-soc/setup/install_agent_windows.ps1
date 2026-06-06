@@ -19,7 +19,7 @@
 param(
     [string]$ManagerIP   = "192.168.56.10",
     [string]$AgentName   = $env:COMPUTERNAME,
-    [string]$WazuhVersion = "4.9.0"
+    [string]$WazuhVersion = "4.9.2"
 )
 
 $ErrorActionPreference = "Stop"
